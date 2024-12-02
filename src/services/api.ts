@@ -124,6 +124,20 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = MAX_R
     
     log('Response status:', response.status);
     log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+    // For 404 errors, return a proper error response
+    if (response.status === 404) {
+      log('Endpoint not found:', url);
+      return new Response(JSON.stringify({
+        error: {
+          message: `Endpoint not found: ${url}`,
+          type: 'not_found_error'
+        }
+      }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
     
     // If the request was successful, return the response
     if (response.ok) return response;
@@ -135,10 +149,42 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = MAX_R
       return fetchWithRetry(url, options, retries - 1);
     }
 
-    // For other errors, throw
-    const data = await response.json();
-    log('Error response data:', data);
-    throw new Error(data.error?.message || `API Error: ${response.status}`);
+    // Try to parse error response as JSON, if fails, create a proper error response
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        log('Error response data:', data);
+        return new Response(JSON.stringify(data), {
+          status: response.status,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else {
+        const text = await response.text();
+        log('Non-JSON error response:', text);
+        return new Response(JSON.stringify({
+          error: {
+            message: `API Error: ${response.status}`,
+            type: 'api_error',
+            details: text.substring(0, 200) // Include first 200 chars of error
+          }
+        }), {
+          status: response.status,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    } catch (parseError) {
+      log('Error parsing response:', parseError);
+      return new Response(JSON.stringify({
+        error: {
+          message: `API Error: ${response.status}`,
+          type: 'api_error'
+        }
+      }), {
+        status: response.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
   } catch (error: unknown) {
     if (error instanceof Error) {
       if (retries > 0 && (error instanceof TypeError || error.name === 'AbortError')) {
@@ -289,87 +335,105 @@ export async function generateSuggestions(bouquet: Bouquet): Promise<string[][]>
 
       log('Making YandexGPT request with body:', JSON.stringify(requestBody, null, 2));
 
-      const response = await fetchWithRetry('/api/yandex/v1/completion', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Api-Key ${bouquet.yandexKey}`,
-          'x-folder-id': bouquet.yandexFolderId
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      const data = await response.json();
-      log('YandexGPT raw response:', JSON.stringify(data, null, 2));
-      
-      if (!response.ok) {
-        const errorMessage = data.error?.message || `API Error: ${response.status}`;
-        log('API error:', errorMessage, data);
-        throw new Error(errorMessage);
-      }
-
-      if (!data.result) {
-        log('Missing result in response:', data);
-        throw new Error('Invalid API response: missing result');
-      }
-
-      log('YandexGPT result:', JSON.stringify(data.result, null, 2));
-
-      // Get the generated text from the response
-      const alternative = data.result.alternatives?.[0];
-      if (!alternative || alternative.status !== 'ALTERNATIVE_STATUS_FINAL') {
-        log('No valid alternative in response:', data);
-        throw new Error('Invalid API response: no valid alternative');
-      }
-
-      const text = alternative.message?.text;
-      log('Generated text:', text);
-
-      if (!text) {
-        log('No text in response:', data);
-        throw new Error('Invalid API response: no text in response');
-      }
-
       try {
-        log('Attempting to parse text:', text);
-        // Clean up markdown formatting if present
-        const cleanText = text.replace(/```(?:json)?\n?([\s\S]*?)\n?```/g, '$1').trim();
-        log('Cleaned text:', cleanText);
-        
-        const parsedContent = JSON.parse(cleanText) as unknown;
-        log('Parsed content:', parsedContent);
-        
-        if (!parsedContent || typeof parsedContent !== 'object' || parsedContent === null) {
-          log('Invalid parsed content:', parsedContent);
-          throw new Error('Invalid JSON format: not an object');
+        const response = await fetchWithRetry('/api/yandex/v1/completion', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Api-Key ${bouquet.yandexKey}`,
+            'x-folder-id': bouquet.yandexFolderId
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType?.includes('application/json')) {
+          log('Unexpected content type:', contentType);
+          const text = await response.text();
+          log('Non-JSON response:', text);
+          throw new Error('Unexpected response format from server');
         }
 
-        const typedContent = parsedContent as { suggestions?: unknown };
-        
-        if (!Array.isArray(typedContent.suggestions)) {
-          log('Invalid suggestions format:', typedContent);
-          throw new Error('Invalid JSON format: suggestions is not an array');
-        }
-        
-        // Validate each suggestion array
-        const isValidSuggestion = (arr: unknown): arr is string[] => {
-          return Array.isArray(arr) && 
-                 arr.length >= 3 && 
-                 arr.length <= 5 && 
-                 arr.every(item => typeof item === 'string');
-        };
+        const data = await response.json();
+        log('YandexGPT raw response:', JSON.stringify(data, null, 2));
 
-        if (!typedContent.suggestions.every(isValidSuggestion)) {
-          log('Invalid suggestion array format:', typedContent.suggestions);
-          throw new Error('Invalid suggestion array format');
+        if (!response.ok) {
+          const errorMessage = data.error?.message || `API Error: ${response.status}`;
+          log('API error:', errorMessage, data);
+          throw new Error(errorMessage);
         }
 
-        log('Successfully parsed suggestions:', typedContent.suggestions);
-        return typedContent.suggestions;
+        if (!data.result) {
+          log('Missing result in response:', data);
+          throw new Error('Invalid API response: missing result');
+        }
+
+        log('YandexGPT result:', JSON.stringify(data.result, null, 2));
+
+        // Get the generated text from the response
+        const alternative = data.result.alternatives?.[0];
+        if (!alternative || alternative.status !== 'ALTERNATIVE_STATUS_FINAL') {
+          log('No valid alternative in response:', data);
+          throw new Error('Invalid API response: no valid alternative');
+        }
+
+        const text = alternative.message?.text;
+        log('Generated text:', text);
+
+        if (!text) {
+          log('No text in response:', data);
+          throw new Error('Invalid API response: no text in response');
+        }
+
+        try {
+          log('Attempting to parse text:', text);
+          // Clean up markdown formatting if present
+          const cleanText = text.replace(/```(?:json)?\n?([\s\S]*?)\n?```/g, '$1').trim();
+          log('Cleaned text:', cleanText);
+          
+          const parsedContent = JSON.parse(cleanText) as unknown;
+          log('Parsed content:', parsedContent);
+          
+          if (!parsedContent || typeof parsedContent !== 'object' || parsedContent === null) {
+            log('Invalid parsed content:', parsedContent);
+            throw new Error('Invalid JSON format: not an object');
+          }
+
+          const typedContent = parsedContent as { suggestions?: unknown };
+          
+          if (!Array.isArray(typedContent.suggestions)) {
+            log('Invalid suggestions format:', typedContent);
+            throw new Error('Invalid JSON format: suggestions is not an array');
+          }
+          
+          // Validate each suggestion array
+          const isValidSuggestion = (arr: unknown): arr is string[] => {
+            return Array.isArray(arr) && 
+                   arr.length >= 3 && 
+                   arr.length <= 5 && 
+                   arr.every(item => typeof item === 'string');
+          };
+
+          if (!typedContent.suggestions.every(isValidSuggestion)) {
+            log('Invalid suggestion array format:', typedContent.suggestions);
+            throw new Error('Invalid suggestion array format');
+          }
+
+          log('Successfully parsed suggestions:', typedContent.suggestions);
+          return typedContent.suggestions;
+        } catch (error) {
+          const parseError = error instanceof Error ? error : new Error('Unknown parse error');
+          log('Parse error:', parseError.message, 'Text:', text);
+          throw new Error(`Failed to parse API response: ${parseError.message}`);
+        }
       } catch (error) {
-        const parseError = error instanceof Error ? error : new Error('Unknown parse error');
-        log('Parse error:', parseError.message, 'Text:', text);
-        throw new Error(`Failed to parse API response: ${parseError.message}`);
+        if (error instanceof Error) {
+          if (error.message.includes('not found')) {
+            throw new Error('API endpoint not available. Please check your deployment.');
+          }
+          throw error;
+        }
+        throw new Error('Unknown error occurred while calling the API');
       }
     } else {
       if (!bouquet.openaiKey) {
