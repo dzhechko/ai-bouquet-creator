@@ -104,7 +104,12 @@ async function generateWithOpenAI(bouquet: Bouquet): Promise<GeneratedBouquet> {
   return { flowerList: bouquet.customFlowers, description, images };
 }
 
-const DEBUG = true;
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000; // 2 seconds
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const DEBUG = import.meta.env.DEBUG === 'true';
 
 const log = (message: string, data?: any) => {
   if (DEBUG) {
@@ -255,11 +260,6 @@ export async function generateBouquet(bouquet: Bouquet): Promise<GeneratedBouque
     throw error instanceof Error ? error : new Error('Failed to generate bouquet');
   }
 }
-
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 2000; // 2 seconds
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function generateSuggestions(bouquet: Bouquet): Promise<string[][]> {
   try {

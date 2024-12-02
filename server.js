@@ -5,12 +5,16 @@ import { createServer } from 'vite';
 import compression from 'compression';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const DEBUG = true;
+const DEBUG = process.env.DEBUG === 'true';
 
 const log = (message, data) => {
   if (DEBUG) {
