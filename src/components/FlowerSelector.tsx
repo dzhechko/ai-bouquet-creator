@@ -9,11 +9,27 @@ const commonFlowers = [
   'Carnation', 'Orchid', 'Peony', 'Hydrangea', 'Chrysanthemum'
 ];
 
+const isYandexModel = (modelId: string) => modelId.startsWith('yandex');
+
 export const FlowerSelector: React.FC = () => {
   const { bouquet, setBouquet } = useBouquetStore();
   const [newFlower, setNewFlower] = React.useState('');
   const [suggestions, setSuggestions] = React.useState<string[][]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = React.useState(false);
+
+  const hasRequiredCredentials = () => {
+    if (isYandexModel(bouquet.selectedModel)) {
+      return !!(bouquet.yandexKey && bouquet.yandexFolderId);
+    }
+    return !!bouquet.openaiKey;
+  };
+
+  const getCredentialsMessage = () => {
+    if (isYandexModel(bouquet.selectedModel)) {
+      return 'Please provide Yandex credentials in AI Settings to get suggestions';
+    }
+    return 'Please provide an API key in AI Settings to get suggestions';
+  };
 
   const addCustomFlower = (flower: string) => {
     if (flower && !bouquet.customFlowers.includes(flower)) {
@@ -36,8 +52,8 @@ export const FlowerSelector: React.FC = () => {
   };
 
   const getSuggestions = async () => {
-    if (!bouquet.openaiKey) {
-      toast.error('Please provide an OpenAI API key in AI Settings first');
+    if (!hasRequiredCredentials()) {
+      toast.error(getCredentialsMessage());
       return;
     }
 
@@ -46,17 +62,17 @@ export const FlowerSelector: React.FC = () => {
       const result = await generateSuggestions(bouquet);
       setSuggestions(result);
     } catch (error) {
-      toast.error('Failed to generate suggestions');
+      toast.error(error instanceof Error ? error.message : 'Failed to generate suggestions');
     } finally {
       setLoadingSuggestions(false);
     }
   };
 
   React.useEffect(() => {
-    if (bouquet.openaiKey && bouquet.occasion && bouquet.recipient) {
+    if (hasRequiredCredentials() && bouquet.occasion && bouquet.recipient) {
       getSuggestions();
     }
-  }, [bouquet.openaiKey, bouquet.occasion, bouquet.recipient]);
+  }, [bouquet.openaiKey, bouquet.yandexKey, bouquet.yandexFolderId, bouquet.occasion, bouquet.recipient, bouquet.selectedModel]);
 
   return (
     <div className="space-y-6">
@@ -66,7 +82,7 @@ export const FlowerSelector: React.FC = () => {
           <h3 className="text-lg font-medium text-gray-900">AI Suggestions</h3>
           <button
             onClick={getSuggestions}
-            disabled={loadingSuggestions || !bouquet.openaiKey}
+            disabled={loadingSuggestions || !hasRequiredCredentials()}
             className="inline-flex items-center gap-2 text-sm text-rose-600 hover:text-rose-700 disabled:opacity-50"
           >
             <Sparkles className="w-4 h-4" />
@@ -104,8 +120,8 @@ export const FlowerSelector: React.FC = () => {
           </div>
         ) : (
           <div className="text-center text-gray-500 py-4">
-            {!bouquet.openaiKey ? (
-              <p>Please provide an OpenAI API key in AI Settings to get suggestions</p>
+            {!hasRequiredCredentials() ? (
+              <p>{getCredentialsMessage()}</p>
             ) : (
               <p>Click refresh to get AI suggestions</p>
             )}

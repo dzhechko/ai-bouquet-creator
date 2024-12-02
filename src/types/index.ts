@@ -6,8 +6,12 @@ export interface Bouquet {
   imageModel: string;
   temperature: number;
   systemPrompt: string;
+  yandexGptPrompt: string;
+  yandexArtPrompt: string;
   openaiKey: string;
   dalleKey: string;
+  yandexKey: string;
+  yandexFolderId: string;
 }
 
 export interface GeneratedBouquet {

@@ -5,7 +5,7 @@ import { FlowerSelector } from './FlowerSelector';
 import { ModelSettings } from './ModelSettings';
 
 export const CustomizeStep: React.FC = () => {
-  const { setStep } = useBouquetStore();
+  const { setStep, bouquet } = useBouquetStore();
   const [activeTab, setActiveTab] = React.useState<'flowers' | 'settings'>('flowers');
 
   return (
@@ -44,7 +44,11 @@ export const CustomizeStep: React.FC = () => {
         </button>
         <button
           onClick={() => setStep(2)}
-          className="flex-1 bg-rose-500 text-white py-2 px-4 rounded-md hover:bg-rose-600 transition-colors flex items-center justify-center gap-2"
+          disabled={bouquet.customFlowers.length === 0}
+          className={`flex-1 py-2 px-4 rounded-md flex items-center justify-center gap-2 transition-colors
+            ${bouquet.customFlowers.length === 0 
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+              : 'bg-rose-500 text-white hover:bg-rose-600'}`}
         >
           <Sparkles className="w-5 h-5" />
           Generate Bouquet

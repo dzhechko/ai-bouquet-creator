@@ -10,10 +10,20 @@ export const GenerateStep: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
 
   const handleGenerate = async () => {
-    if (!bouquet.openaiKey) {
-      toast.error('OpenAI API key is required');
-      setStep(1); // Go back to customize step
-      return;
+    const isYandexModel = (modelId: string) => modelId.startsWith('yandex');
+    
+    if (isYandexModel(bouquet.selectedModel)) {
+      if (!bouquet.yandexKey || !bouquet.yandexFolderId) {
+        toast.error('Yandex API key and Folder ID are required');
+        setStep(1); // Go back to customize step
+        return;
+      }
+    } else {
+      if (!bouquet.openaiKey) {
+        toast.error('OpenAI API key is required');
+        setStep(1); // Go back to customize step
+        return;
+      }
     }
 
     setLoading(true);

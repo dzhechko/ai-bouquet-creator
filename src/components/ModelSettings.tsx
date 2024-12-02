@@ -2,71 +2,143 @@ import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useBouquetStore } from '../store/bouquetStore';
 
+// Get the OpenAI mode from environment variable
+const OPENAI_MODE = import.meta.env.VITE_OPENAI_MODE === 'true';
+
 const textModels = [
-  { id: 'gpt-4', name: 'GPT-4 (Recommended)' },
-  { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo' },
+  ...(OPENAI_MODE ? [
+    { id: 'gpt-4', name: 'GPT-4 (OpenAI)' },
+    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo (OpenAI)' },
+  ] : []),
+  { id: 'yandexgpt-pro', name: 'YandexGPT Pro' },
+  { id: 'yandexgpt-pro-32k', name: 'YandexGPT Pro 32k' },
 ];
 
 const imageModels = [
-  { id: 'dall-e-3', name: 'DALL-E 3 (Recommended)' },
-  { id: 'dall-e-2', name: 'DALL-E 2' },
+  ...(OPENAI_MODE ? [
+    { id: 'dall-e-3', name: 'DALL-E 3 (OpenAI)' },
+    { id: 'dall-e-2', name: 'DALL-E 2 (OpenAI)' },
+  ] : []),
+  { id: 'yandex-art', name: 'YandexART' },
 ];
 
 export const ModelSettings: React.FC = () => {
   const { bouquet, setBouquet } = useBouquetStore();
   const [showOpenAIKey, setShowOpenAIKey] = React.useState(false);
   const [showDALLEKey, setShowDALLEKey] = React.useState(false);
+  const [showYandexKey, setShowYandexKey] = React.useState(false);
+
+  // Set default model if current model is OpenAI and OpenAI mode is disabled
+  React.useEffect(() => {
+    if (!OPENAI_MODE) {
+      if (bouquet.selectedModel.includes('gpt')) {
+        setBouquet({ selectedModel: 'yandexgpt-pro' });
+      }
+      if (bouquet.imageModel.includes('dall-e')) {
+        setBouquet({ imageModel: 'yandex-art' });
+      }
+    }
+  }, []);
+
+  const handleModelChange = (type: 'text' | 'image', modelId: string) => {
+    if (type === 'text') {
+      setBouquet({ selectedModel: modelId });
+    } else {
+      setBouquet({ imageModel: modelId });
+    }
+  };
+
+  const isYandexModel = (modelId: string) => modelId.startsWith('yandex');
 
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-4">API Keys</h3>
         <div className="space-y-4">
+          {OPENAI_MODE && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  OpenAI API Key
+                </label>
+                <div className="relative">
+                  <input
+                    type={showOpenAIKey ? 'text' : 'password'}
+                    value={bouquet.openaiKey}
+                    onChange={(e) => setBouquet({ openaiKey: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-rose-500 focus:border-rose-500 pr-10"
+                    placeholder="sk-..."
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowOpenAIKey(!showOpenAIKey)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showOpenAIKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  DALL-E API Key (optional)
+                </label>
+                <div className="relative">
+                  <input
+                    type={showDALLEKey ? 'text' : 'password'}
+                    value={bouquet.dalleKey}
+                    onChange={(e) => setBouquet({ dalleKey: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-rose-500 focus:border-rose-500 pr-10"
+                    placeholder="sk-..."
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDALLEKey(!showDALLEKey)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showDALLEKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  If not provided, will use the OpenAI API key
+                </p>
+              </div>
+            </>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              OpenAI API Key
+              YandexGPT API Key
             </label>
             <div className="relative">
               <input
-                type={showOpenAIKey ? 'text' : 'password'}
-                value={bouquet.openaiKey}
-                onChange={(e) => setBouquet({ openaiKey: e.target.value })}
+                type={showYandexKey ? 'text' : 'password'}
+                value={bouquet.yandexKey}
+                onChange={(e) => setBouquet({ yandexKey: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-rose-500 focus:border-rose-500 pr-10"
-                placeholder="sk-..."
+                placeholder="Enter your YandexGPT API key..."
               />
               <button
                 type="button"
-                onClick={() => setShowOpenAIKey(!showOpenAIKey)}
+                onClick={() => setShowYandexKey(!showYandexKey)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
               >
-                {showOpenAIKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {showYandexKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              DALL-E API Key (optional)
+              YandexGPT Folder ID
             </label>
-            <div className="relative">
-              <input
-                type={showDALLEKey ? 'text' : 'password'}
-                value={bouquet.dalleKey}
-                onChange={(e) => setBouquet({ dalleKey: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-rose-500 focus:border-rose-500 pr-10"
-                placeholder="sk-..."
-              />
-              <button
-                type="button"
-                onClick={() => setShowDALLEKey(!showDALLEKey)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-              >
-                {showDALLEKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-            <p className="mt-1 text-sm text-gray-500">
-              If not provided, will use the OpenAI API key
-            </p>
+            <input
+              type="text"
+              value={bouquet.yandexFolderId}
+              onChange={(e) => setBouquet({ yandexFolderId: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-rose-500 focus:border-rose-500"
+              placeholder="Enter your YandexGPT Folder ID..."
+            />
           </div>
         </div>
       </div>
@@ -77,20 +149,44 @@ export const ModelSettings: React.FC = () => {
           {textModels.map(model => (
             <label
               key={model.id}
-              className="flex items-center p-3 border rounded-md cursor-pointer transition-colors hover:border-rose-300"
+              className={`flex items-center p-3 border rounded-md cursor-pointer transition-colors hover:border-rose-300 ${
+                isYandexModel(model.id) && (!bouquet.yandexKey || !bouquet.yandexFolderId)
+                  ? 'opacity-50 cursor-not-allowed'
+                  : ''
+              }`}
             >
               <input
                 type="radio"
                 name="textModel"
                 value={model.id}
                 checked={bouquet.selectedModel === model.id}
-                onChange={(e) => setBouquet({ selectedModel: e.target.value })}
+                onChange={(e) => handleModelChange('text', e.target.value)}
+                disabled={isYandexModel(model.id) && (!bouquet.yandexKey || !bouquet.yandexFolderId)}
                 className="text-rose-500 focus:ring-rose-500"
               />
               <span className="ml-3">{model.name}</span>
+              {isYandexModel(model.id) && (!bouquet.yandexKey || !bouquet.yandexFolderId) && (
+                <span className="ml-auto text-sm text-gray-500">
+                  Requires Yandex credentials
+                </span>
+              )}
             </label>
           ))}
         </div>
+        {isYandexModel(bouquet.selectedModel) && bouquet.yandexKey && bouquet.yandexFolderId && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              YandexGPT System Prompt
+            </label>
+            <textarea
+              value={bouquet.yandexGptPrompt}
+              onChange={(e) => setBouquet({ yandexGptPrompt: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-rose-500 focus:border-rose-500 min-h-[100px]"
+              placeholder="Enter system prompt for YandexGPT..."
+              defaultValue="As a professional florist, suggest 2 different flower combinations for a {occasion} bouquet for {recipient}. Each combination should have 3-5 flowers. Return ONLY a raw JSON object with this exact structure: {'suggestions':[['flower1','flower2','flower3'],['flower1','flower2','flower3']]}. Do not use any markdown formatting, code blocks, or additional text. Return only the JSON object."
+            />
+          </div>
+        )}
       </div>
 
       <div>
@@ -99,55 +195,68 @@ export const ModelSettings: React.FC = () => {
           {imageModels.map(model => (
             <label
               key={model.id}
-              className="flex items-center p-3 border rounded-md cursor-pointer transition-colors hover:border-rose-300"
+              className={`flex items-center p-3 border rounded-md cursor-pointer transition-colors hover:border-rose-300 ${
+                isYandexModel(model.id) && (!bouquet.yandexKey || !bouquet.yandexFolderId)
+                  ? 'opacity-50 cursor-not-allowed'
+                  : ''
+              }`}
             >
               <input
                 type="radio"
                 name="imageModel"
                 value={model.id}
                 checked={bouquet.imageModel === model.id}
-                onChange={(e) => setBouquet({ imageModel: e.target.value })}
+                onChange={(e) => handleModelChange('image', e.target.value)}
+                disabled={isYandexModel(model.id) && (!bouquet.yandexKey || !bouquet.yandexFolderId)}
                 className="text-rose-500 focus:ring-rose-500"
               />
               <span className="ml-3">{model.name}</span>
+              {isYandexModel(model.id) && (!bouquet.yandexKey || !bouquet.yandexFolderId) && (
+                <span className="ml-auto text-sm text-gray-500">
+                  Requires Yandex credentials
+                </span>
+              )}
             </label>
           ))}
         </div>
+        {isYandexModel(bouquet.imageModel) && bouquet.yandexKey && bouquet.yandexFolderId && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              YandexART System Prompt
+            </label>
+            <textarea
+              value={bouquet.yandexArtPrompt}
+              onChange={(e) => setBouquet({ yandexArtPrompt: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-rose-500 focus:border-rose-500 min-h-[100px]"
+              placeholder="Enter system prompt for YandexART..."
+              defaultValue="A professional, high-quality photograph of a beautiful flower bouquet containing {flowers}. The bouquet is designed for {occasion} for {recipient}. Photorealistic style, studio lighting, white background."
+            />
+          </div>
+        )}
       </div>
 
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-4">Advanced Settings</h3>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Temperature ({bouquet.temperature})
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={bouquet.temperature}
-              onChange={(e) => setBouquet({ temperature: parseFloat(e.target.value) })}
-              className="w-full accent-rose-500"
-            />
-            <div className="flex justify-between text-sm text-gray-500">
-              <span>Conservative</span>
-              <span>Creative</span>
+            <div className="flex justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">
+                Temperature ({bouquet.temperature})
+              </label>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              System Prompt
-            </label>
-            <textarea
-              value={bouquet.systemPrompt}
-              onChange={(e) => setBouquet({ systemPrompt: e.target.value })}
-              rows={3}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-rose-500 focus:border-rose-500"
-              placeholder="Customize the AI's behavior..."
-            />
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-500">Conservative</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={bouquet.temperature}
+                onChange={(e) => setBouquet({ temperature: parseFloat(e.target.value) })}
+                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-rose-500"
+              />
+              <span className="text-sm text-gray-500">Creative</span>
+            </div>
           </div>
         </div>
       </div>

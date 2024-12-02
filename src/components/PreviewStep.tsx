@@ -2,10 +2,12 @@ import React from 'react';
 import { Download, RefreshCw, Maximize2, ArrowLeft } from 'lucide-react';
 import { useBouquetStore } from '../store/bouquetStore';
 import { ImageModal } from './ImageModal';
+import { toast } from 'react-hot-toast';
 
 export const PreviewStep: React.FC = () => {
   const { bouquet, generated, setStep } = useBouquetStore();
   const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
+  const [downloading, setDownloading] = React.useState(false);
   
   if (!generated) {
     return null;
@@ -13,8 +15,58 @@ export const PreviewStep: React.FC = () => {
 
   const downloadImage = async (url: string) => {
     try {
-      const response = await fetch(url);
-      const blob = await response.blob();
+      setDownloading(true);
+      
+      let blob: Blob;
+      
+      // Check if the URL is a data URL (base64)
+      if (url.startsWith('data:')) {
+        // Extract base64 data and convert to blob
+        const base64Data = url.split(',')[1];
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        
+        const byteArray = new Uint8Array(byteNumbers);
+        blob = new Blob([byteArray], { type: 'image/jpeg' });
+      } else {
+        // For remote URLs, use the proxy
+        const headers: Record<string, string> = {};
+        
+        const isYandexModel = (modelId: string) => modelId.startsWith('yandex');
+        if (isYandexModel(bouquet.imageModel)) {
+          headers['Authorization'] = `Api-Key ${bouquet.yandexKey}`;
+          headers['x-folder-id'] = bouquet.yandexFolderId;
+        } else {
+          headers['Authorization'] = `Bearer ${bouquet.openaiKey}`;
+        }
+
+        const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(url)}`, {
+          headers
+        });
+        
+        if (!response.ok) {
+          const contentType = response.headers.get('content-type');
+          if (contentType?.includes('application/json')) {
+            const error = await response.json();
+            throw new Error(error.error?.message || 'Failed to download image');
+          } else {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Failed to download image');
+          }
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType?.includes('image/')) {
+          throw new Error('Invalid response: not an image');
+        }
+        
+        blob = await response.blob();
+      }
+      
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
@@ -23,25 +75,34 @@ export const PreviewStep: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
+      toast.success('Image downloaded successfully');
     } catch (error) {
       console.error('Error downloading image:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to download image');
+    } finally {
+      setDownloading(false);
     }
   };
 
   const downloadAllImages = async () => {
-    for (const url of generated.images) {
-      await downloadImage(url);
+    setDownloading(true);
+    try {
+      for (const url of generated.images) {
+        await downloadImage(url);
+      }
+    } finally {
+      setDownloading(false);
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <button
-        onClick={() => setStep(2)}
+        onClick={() => setStep(1)}
         className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
       >
         <ArrowLeft className="w-5 h-5" />
-        Back to Generation
+        Back to Customize
       </button>
 
       <div className="bg-white rounded-lg shadow-md p-6">
