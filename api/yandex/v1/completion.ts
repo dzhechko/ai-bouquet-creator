@@ -9,15 +9,33 @@ const log = (message: string, data?: any) => {
   }
 };
 
-interface YandexHeaders {
-  'Content-Type': string;
-  'Authorization': string;
-  'x-folder-id': string;
-}
+const logHeaders = (prefix: string, headers: any) => {
+  if (DEBUG) {
+    console.log(`[Header Debug] ${prefix}:`, {
+      type: typeof headers,
+      isArray: Array.isArray(headers),
+      keys: Object.keys(headers),
+      values: Object.entries(headers).map(([key, value]) => ({
+        key,
+        value,
+        type: typeof value,
+        isArray: Array.isArray(value)
+      }))
+    });
+  }
+};
 
 const getHeaderValue = (value: string | string[] | undefined): string => {
+  if (DEBUG) {
+    console.log('[Header Value Debug]:', {
+      value,
+      type: typeof value,
+      isArray: Array.isArray(value)
+    });
+  }
+  
   if (Array.isArray(value)) {
-    return value[0];
+    return value[0] || '';
   }
   return value || '';
 };
@@ -28,10 +46,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    log('Completion endpoint called');
+    logHeaders('Incoming Request Headers', req.headers);
 
     const authorization = getHeaderValue(req.headers.authorization);
     const folderId = getHeaderValue(req.headers['x-folder-id']);
+
+    log('Processed Headers:', {
+      hasApiKey: !!authorization,
+      apiKeyType: typeof authorization,
+      folderId,
+      folderIdType: typeof folderId
+    });
 
     if (!authorization) {
       log('Missing Authorization header');
@@ -57,16 +82,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     log('Request body:', JSON.stringify(req.body, null, 2));
 
-    const headers: YandexHeaders = {
+    // Create headers object with explicit string values
+    const requestHeaders = {
       'Content-Type': 'application/json',
       'Authorization': authorization,
-      'x-folder-id': folderId
-    };
+      'x-folder-id': String(folderId)
+    } satisfies Record<string, string>;
+
+    logHeaders('Outgoing Request Headers', requestHeaders);
 
     const response = await axios({
       method: 'POST',
       url,
-      headers: headers as any,
+      headers: requestHeaders,
       data: req.body,
       timeout: 60000,
       validateStatus: null

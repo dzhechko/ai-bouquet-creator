@@ -8,15 +8,33 @@ const log = (message: string, data?: any) => {
   }
 };
 
-interface YandexHeaders {
-  'Content-Type': string;
-  'Authorization': string;
-  'x-folder-id': string;
-}
+const logHeaders = (prefix: string, headers: any) => {
+  if (DEBUG) {
+    console.log(`[Header Debug] ${prefix}:`, {
+      type: typeof headers,
+      isArray: Array.isArray(headers),
+      keys: Object.keys(headers),
+      values: Object.entries(headers).map(([key, value]) => ({
+        key,
+        value,
+        type: typeof value,
+        isArray: Array.isArray(value)
+      }))
+    });
+  }
+};
 
 const getHeaderValue = (value: string | string[] | undefined): string => {
+  if (DEBUG) {
+    console.log('[Header Value Debug]:', {
+      value,
+      type: typeof value,
+      isArray: Array.isArray(value)
+    });
+  }
+  
   if (Array.isArray(value)) {
-    return value[0];
+    return value[0] || '';
   }
   return value || '';
 };
@@ -27,44 +45,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    log('Incoming YandexART request', {
-      method: req.method,
-      path: req.url,
-      headers: {
-        ...req.headers,
-        authorization: req.headers.authorization ? '***' : undefined
-      },
-      body: req.body
-    });
+    logHeaders('Incoming Request Headers', req.headers);
 
     const apiKey = getHeaderValue(req.headers.authorization)?.replace('Api-Key ', '');
     const folderId = getHeaderValue(req.headers['x-folder-id']);
+
+    log('Processed Headers:', {
+      hasApiKey: !!apiKey,
+      apiKeyType: typeof apiKey,
+      folderId,
+      folderIdType: typeof folderId
+    });
 
     if (!apiKey || !folderId) {
       log('Missing credentials', { hasApiKey: !!apiKey, hasFolderId: !!folderId });
       return res.status(400).json({ error: { message: 'API key and Folder ID are required' } });
     }
 
-    const headers: YandexHeaders = {
+    // Create headers object with explicit string values
+    const requestHeaders = {
       'Content-Type': 'application/json',
       'Authorization': `Api-Key ${apiKey}`,
-      'x-folder-id': folderId
-    };
+      'x-folder-id': String(folderId)
+    } satisfies Record<string, string>;
 
-    log('Making request to YandexART API', {
-      url: 'https://llm.api.cloud.yandex.net/foundationModels/v1/imageGenerationAsync',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': '***',
-        'x-folder-id': folderId
-      },
-      body: req.body
-    });
+    logHeaders('Outgoing Request Headers', requestHeaders);
 
     const response = await fetch('https://llm.api.cloud.yandex.net/foundationModels/v1/imageGenerationAsync', {
       method: 'POST',
-      headers: headers as HeadersInit,
+      headers: requestHeaders,
       body: JSON.stringify(req.body)
     });
 
@@ -78,7 +87,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(response.status).json(data);
     }
 
-    // Wait for the operation to complete
     const operationId = data.id;
     if (!operationId) {
       log('Missing operation ID in response:', data);
@@ -89,13 +97,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let operationResult;
     let attempts = 0;
-    const maxAttempts = 30; // 30 seconds timeout
+    const maxAttempts = 30;
     
     while (attempts < maxAttempts) {
       log(`Checking operation status (attempt ${attempts + 1}/${maxAttempts})`, { operationId });
       
       const operationResponse = await fetch(`https://llm.api.cloud.yandex.net/operations/${operationId}`, {
-        headers: headers as HeadersInit
+        headers: requestHeaders
       });
 
       if (!operationResponse.ok) {
@@ -114,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         break;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before next check
+      await new Promise(resolve => setTimeout(resolve, 1000));
       attempts++;
     }
 
