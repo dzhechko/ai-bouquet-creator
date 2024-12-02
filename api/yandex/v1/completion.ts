@@ -9,6 +9,12 @@ const log = (message: string, data?: any) => {
   }
 };
 
+interface YandexHeaders {
+  'Content-Type': string;
+  'Authorization': string;
+  'x-folder-id': string;
+}
+
 const getHeaderValue = (value: string | string[] | undefined): string => {
   if (Array.isArray(value)) {
     return value[0];
@@ -51,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     log('Request body:', JSON.stringify(req.body, null, 2));
 
-    const requestHeaders: Record<string, string> = {
+    const headers: YandexHeaders = {
       'Content-Type': 'application/json',
       'Authorization': authorization,
       'x-folder-id': folderId
@@ -60,7 +66,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const response = await axios({
       method: 'POST',
       url,
-      headers: requestHeaders,
+      headers: headers as any,
       data: req.body,
       timeout: 60000,
       validateStatus: null
