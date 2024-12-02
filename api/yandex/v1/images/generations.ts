@@ -8,6 +8,13 @@ const log = (message: string, data?: any) => {
   }
 };
 
+const getHeaderValue = (value: string | string[] | undefined): string => {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value || '';
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: { message: 'Method not allowed' } });
@@ -24,8 +31,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: req.body
     });
 
-    const apiKey = req.headers.authorization?.replace('Api-Key ', '');
-    const folderId = req.headers['x-folder-id'];
+    const apiKey = getHeaderValue(req.headers.authorization)?.replace('Api-Key ', '');
+    const folderId = getHeaderValue(req.headers['x-folder-id']);
 
     if (!apiKey || !folderId) {
       log('Missing credentials', { hasApiKey: !!apiKey, hasFolderId: !!folderId });

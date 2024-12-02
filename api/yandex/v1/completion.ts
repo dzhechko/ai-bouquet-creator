@@ -9,6 +9,13 @@ const log = (message: string, data?: any) => {
   }
 };
 
+const getHeaderValue = (value: string | string[] | undefined): string => {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value || '';
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: { message: 'Method not allowed' } });
@@ -17,7 +24,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     log('Completion endpoint called');
 
-    if (!req.headers.authorization) {
+    const authorization = getHeaderValue(req.headers.authorization);
+    const folderId = getHeaderValue(req.headers['x-folder-id']);
+
+    if (!authorization) {
       log('Missing Authorization header');
       return res.status(400).json({
         error: {
@@ -27,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    if (!req.headers['x-folder-id']) {
+    if (!folderId) {
       log('Missing x-folder-id header');
       return res.status(400).json({
         error: {
@@ -46,8 +56,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       url,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': req.headers.authorization,
-        'x-folder-id': req.headers['x-folder-id']
+        'Authorization': authorization,
+        'x-folder-id': folderId
       },
       data: req.body,
       timeout: 60000,
