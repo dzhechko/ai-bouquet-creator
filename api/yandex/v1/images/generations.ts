@@ -39,25 +39,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: { message: 'API key and Folder ID are required' } });
     }
 
-    const requestHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Authorization': `Api-Key ${apiKey}`,
-      'x-folder-id': folderId
-    };
+    const headers = new Headers();
+    headers.append('Content-Type', 'application/json');
+    headers.append('Authorization', `Api-Key ${apiKey}`);
+    headers.append('x-folder-id', folderId);
 
     log('Making request to YandexART API', {
       url: 'https://llm.api.cloud.yandex.net/foundationModels/v1/imageGenerationAsync',
       method: 'POST',
       headers: {
-        ...requestHeaders,
-        'Authorization': '***'
+        'Content-Type': 'application/json',
+        'Authorization': '***',
+        'x-folder-id': folderId
       },
       body: req.body
     });
 
     const response = await fetch('https://llm.api.cloud.yandex.net/foundationModels/v1/imageGenerationAsync', {
       method: 'POST',
-      headers: requestHeaders,
+      headers,
       body: JSON.stringify(req.body)
     });
 
@@ -88,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       log(`Checking operation status (attempt ${attempts + 1}/${maxAttempts})`, { operationId });
       
       const operationResponse = await fetch(`https://llm.api.cloud.yandex.net/operations/${operationId}`, {
-        headers: requestHeaders
+        headers
       });
 
       if (!operationResponse.ok) {
