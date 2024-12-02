@@ -54,6 +54,57 @@ An elegant web application that uses AI to help you create perfect flower bouque
 
 5. Open http://localhost:5173 in your browser
 
+## 💻 Deployment
+
+### Vercel Deployment (Recommended)
+
+1. Fork this repository to your GitHub account
+
+2. Create a new project on [Vercel](https://vercel.com)
+
+3. Connect your GitHub repository to Vercel
+
+4. Configure the following Environment Variables in Vercel:
+   ```
+   VITE_OPENAI_MODE=false
+   DEBUG=false
+   ```
+
+5. Deploy! Vercel will automatically detect the configuration and deploy both the frontend and API endpoints.
+
+### Manual Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/ai-bouquet-creator.git
+   cd ai-bouquet-creator
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+3. Create a .env file in the root directory:
+   ```env
+   # Enable/disable OpenAI mode (true/false)
+   VITE_OPENAI_MODE=false
+
+   # Enable/disable debug logging (true/false)
+   DEBUG=false
+   ```
+
+4. Start the development server:
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
+
+5. Open http://localhost:5173 in your browser
+
 ## 💻 Usage Guide
 
 1. **Initial Setup**
