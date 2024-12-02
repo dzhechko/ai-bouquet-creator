@@ -51,11 +51,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     log('Request body:', JSON.stringify(req.body, null, 2));
 
-    const requestHeaders = {
+    const requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       'Authorization': authorization,
       'x-folder-id': folderId
-    } as const;
+    };
 
     const response = await axios({
       method: 'POST',
